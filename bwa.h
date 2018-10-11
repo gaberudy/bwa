@@ -12,22 +12,24 @@
 
 #define BWA_CTL_SIZE 0x10000
 
-#define BWTALGO_AUTO  0
-#define BWTALGO_RB2   1
+#define BWTALGO_AUTO 0
+#define BWTALGO_RB2 1
 #define BWTALGO_BWTSW 2
-#define BWTALGO_IS    3
+#define BWTALGO_IS 3
 
-typedef struct {
-	bwt_t    *bwt; // FM-index
+typedef struct
+{
+	bwt_t *bwt;	// FM-index
 	bntseq_t *bns; // information on the reference sequences
-	uint8_t  *pac; // the actual 2-bit encoded reference sequences with 'N' converted to a random base
+	uint8_t *pac;  // the actual 2-bit encoded reference sequences with 'N' converted to a random base
 
-	int    is_shm;
+	int is_shm;
 	int64_t l_mem;
-	uint8_t  *mem;
+	uint8_t *mem;
 } bwaidx_t;
 
-typedef struct {
+typedef struct
+{
 	int l_seq, id;
 	char *name, *comment, *seq, *qual, *sam;
 } bseq1_t;
@@ -36,7 +38,8 @@ extern int bwa_verbose;
 extern char bwa_rg_id[256];
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 	bseq1_t *bseq_read(int chunk_size, int *n_, void *ks1_, void *ks2_);

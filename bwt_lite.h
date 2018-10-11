@@ -3,17 +3,19 @@
 
 #include <stdint.h>
 
-typedef struct {
+typedef struct
+{
 	uint32_t seq_len, bwt_size, n_occ;
 	uint32_t primary;
 	uint32_t *bwt, *occ, *sa, L2[5];
 	uint32_t cnt_table[256];
 } bwtl_t;
 
-#define bwtl_B0(b, k) ((b)->bwt[(k)>>4]>>((~(k)&0xf)<<1)&3)
+#define bwtl_B0(b, k) ((b)->bwt[(k) >> 4] >> ((~(k)&0xf) << 1) & 3)
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 	bwtl_t *bwtl_seq2bwtl(int len, const uint8_t *seq);

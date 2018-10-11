@@ -1,11 +1,12 @@
 #ifndef MALLOC_WRAP_H
 #define MALLOC_WRAP_H
 
-#include <stdlib.h>  /* Avoid breaking the usual definitions */
+#include <stdlib.h> /* Avoid breaking the usual definitions */
 #include <string.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 	void *wrap_calloc(size_t nmemb, size_t size,
@@ -22,25 +23,25 @@ extern "C" {
 #endif
 
 #ifdef USE_MALLOC_WRAPPERS
-#  ifdef calloc
-#    undef calloc
-#  endif
-#  define calloc(n, s)  wrap_calloc( (n), (s), __FILE__, __LINE__, __func__)
+#ifdef calloc
+#undef calloc
+#endif
+#define calloc(n, s) wrap_calloc((n), (s), __FILE__, __LINE__, __func__)
 
-#  ifdef malloc
-#    undef malloc
-#  endif
-#  define malloc(s)     wrap_malloc( (s),      __FILE__, __LINE__, __func__)
+#ifdef malloc
+#undef malloc
+#endif
+#define malloc(s) wrap_malloc((s), __FILE__, __LINE__, __func__)
 
-#  ifdef realloc
-#    undef realloc
-#  endif
-#  define realloc(p, s) wrap_realloc((p), (s), __FILE__, __LINE__, __func__)
+#ifdef realloc
+#undef realloc
+#endif
+#define realloc(p, s) wrap_realloc((p), (s), __FILE__, __LINE__, __func__)
 
-#  ifdef strdup
-#    undef strdup
-#  endif
-#  define strdup(s)     wrap_strdup( (s),      __FILE__, __LINE__, __func__)
+#ifdef strdup
+#undef strdup
+#endif
+#define strdup(s) wrap_strdup((s), __FILE__, __LINE__, __func__)
 
 #endif /* USE_MALLOC_WRAPPERS */
 
