@@ -44,7 +44,7 @@
 #include "ksort.h"
 #define pair64_lt(a, b) ((a).x < (b).x || ((a).x == (b).x && (a).y < (b).y))
 KSORT_INIT(128, pair64_t, pair64_lt)
-KSORT_INIT(64,  uint64_t, ks_lt_generic)
+KSORT_INIT(64, uint64_t, ks_lt_generic)
 
 #include "kseq.h"
 KSEQ_INIT2(, gzFile, err_gzread)
@@ -57,8 +57,9 @@ FILE *err_xopen_core(const char *func, const char *fn, const char *mode)
 {
 	FILE *fp = 0;
 	if (strcmp(fn, "-") == 0)
-		return (strstr(mode, "r"))? stdin : stdout;
-	if ((fp = fopen(fn, mode)) == 0) {
+		return (strstr(mode, "r")) ? stdin : stdout;
+	if ((fp = fopen(fn, mode)) == 0)
+	{
 		err_fatal(func, "fail to open file '%s' : %s", fn, strerror(errno));
 	}
 	return fp;
@@ -66,7 +67,8 @@ FILE *err_xopen_core(const char *func, const char *fn, const char *mode)
 
 FILE *err_xreopen_core(const char *func, const char *fn, const char *mode, FILE *fp)
 {
-	if (freopen(fn, mode, fp) == 0) {
+	if (freopen(fn, mode, fp) == 0)
+	{
 		err_fatal(func, "fail to open file '%s' : %s", fn, strerror(errno));
 	}
 	return fp;
@@ -75,13 +77,16 @@ FILE *err_xreopen_core(const char *func, const char *fn, const char *mode, FILE 
 gzFile err_xzopen_core(const char *func, const char *fn, const char *mode)
 {
 	gzFile fp;
-	if (strcmp(fn, "-") == 0) {
-		fp = gzdopen(fileno((strstr(mode, "r"))? stdin : stdout), mode);
+	if (strcmp(fn, "-") == 0)
+	{
+		fp = gzdopen(fileno((strstr(mode, "r")) ? stdin : stdout), mode);
 		/* According to zlib.h, this is the only reason gzdopen can fail */
-		if (!fp) err_fatal(func, "Out of memory");
+		if (!fp)
+			err_fatal(func, "Out of memory");
 		return fp;
 	}
-	if ((fp = gzopen(fn, mode)) == 0) {
+	if ((fp = gzopen(fn, mode)) == 0)
+	{
 		err_fatal(func, "fail to open file '%s' : %s", fn, errno ? strerror(errno) : "Out of memory");
 	}
 	return fp;
@@ -124,7 +129,7 @@ void _err_fatal_simple_core(const char *func, const char *msg)
 size_t err_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
 	size_t ret = fwrite(ptr, size, nmemb, stream);
-	if (ret != nmemb) 
+	if (ret != nmemb)
 		_err_fatal_simple("fwrite", strerror(errno));
 	return ret;
 }
@@ -173,7 +178,7 @@ long err_ftell(FILE *stream)
 	return ret;
 }
 
-int err_printf(const char *format, ...) 
+int err_printf(const char *format, ...)
 {
 	va_list arg;
 	int done;
@@ -181,11 +186,12 @@ int err_printf(const char *format, ...)
 	done = vfprintf(stdout, format, arg);
 	int saveErrno = errno;
 	va_end(arg);
-	if (done < 0) _err_fatal_simple("vfprintf(stdout)", strerror(saveErrno));
+	if (done < 0)
+		_err_fatal_simple("vfprintf(stdout)", strerror(saveErrno));
 	return done;
 }
 
-int err_fprintf(FILE *stream, const char *format, ...) 
+int err_fprintf(FILE *stream, const char *format, ...)
 {
 	va_list arg;
 	int done;
@@ -193,7 +199,8 @@ int err_fprintf(FILE *stream, const char *format, ...)
 	done = vfprintf(stream, format, arg);
 	int saveErrno = errno;
 	va_end(arg);
-	if (done < 0) _err_fatal_simple("vfprintf", strerror(saveErrno));
+	if (done < 0)
+		_err_fatal_simple("vfprintf", strerror(saveErrno));
 	return done;
 }
 
@@ -230,10 +237,11 @@ int err_puts(const char *s)
 	return ret;
 }
 
-int err_fflush(FILE *stream) 
+int err_fflush(FILE *stream)
 {
-    int ret = fflush(stream);
-    if (ret != 0) _err_fatal_simple("fflush", strerror(errno));
+	int ret = fflush(stream);
+	if (ret != 0)
+		_err_fatal_simple("fflush", strerror(errno));
 
 #ifdef FSYNC_ON_FLUSH
 	/* Calling fflush() ensures that all the data has made it to the
@@ -246,7 +254,7 @@ int err_fflush(FILE *stream)
 		struct stat sbuf;
 		if (0 != fstat(fileno(stream), &sbuf))
 			_err_fatal_simple("fstat", strerror(errno));
-		
+
 		if (S_ISREG(sbuf.st_mode))
 		{
 			if (0 != fsync(fileno(stream)))
@@ -254,13 +262,14 @@ int err_fflush(FILE *stream)
 		}
 	}
 #endif
-    return ret;
+	return ret;
 }
 
-int err_fclose(FILE *stream) 
+int err_fclose(FILE *stream)
 {
 	int ret = fclose(stream);
-	if (ret != 0) _err_fatal_simple("fclose", strerror(errno));
+	if (ret != 0)
+		_err_fatal_simple("fclose", strerror(errno));
 	return ret;
 }
 

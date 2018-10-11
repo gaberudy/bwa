@@ -3,23 +3,25 @@
 
 #include <stdint.h>
 
-#define KSW_XBYTE  0x10000
-#define KSW_XSTOP  0x20000
-#define KSW_XSUBO  0x40000
+#define KSW_XBYTE 0x10000
+#define KSW_XSTOP 0x20000
+#define KSW_XSUBO 0x40000
 #define KSW_XSTART 0x80000
 
 struct _kswq_t;
 typedef struct _kswq_t kswq_t;
 
-typedef struct {
-	int score; // best score
-	int te, qe; // target end and query end
+typedef struct
+{
+	int score;		 // best score
+	int te, qe;		 // target end and query end
 	int score2, te2; // second best score and ending position on the target
-	int tb, qb; // target start and query start
+	int tb, qb;		 // target start and query start
 } kswr_t;
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 	/**
