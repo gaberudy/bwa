@@ -39,6 +39,7 @@
 #include "malloc_wrap.h"
 #endif
 
+/// Generates an interesting table of 256 counts
 void bwt_gen_cnt_table(bwt_t *bwt)
 {
 	int i, j;
@@ -534,12 +535,14 @@ bwt_t *bwt_restore_bwt(const char *fn)
 	bwt = (bwt_t *)calloc(1, sizeof(bwt_t));
 	fp = xopen(fn, "rb");
 	err_fseek(fp, 0, SEEK_END);
+	/// Inferred from file size (size of file - (5 * int size)) / 4
 	bwt->bwt_size = (err_ftell(fp) - sizeof(bwtint_t) * 5) >> 2;
 	bwt->bwt = (uint32_t *)calloc(bwt->bwt_size, 4);
 	err_fseek(fp, 0, SEEK_SET);
 	err_fread_noeof(&bwt->primary, sizeof(bwtint_t), 1, fp);
 	err_fread_noeof(bwt->L2 + 1, sizeof(bwtint_t), 4, fp);
 	fread_fix(fp, bwt->bwt_size << 2, bwt->bwt);
+	/// Yup, L2[4] is total seq count, but what is L2[0-3] for?
 	bwt->seq_len = bwt->L2[4];
 	err_fclose(fp);
 	bwt_gen_cnt_table(bwt);

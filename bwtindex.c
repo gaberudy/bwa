@@ -46,6 +46,7 @@
 #include "malloc_wrap.h"
 #endif
 
+/// Defined in is.c
 int is_bwt(ubyte_t *T, int n);
 
 int64_t bwa_seq_len(const char *fn_pac)
@@ -70,7 +71,10 @@ bwt_t *bwt_pac2bwt(const char *fn_pac, int use_is)
 
 	// initialization
 	bwt = (bwt_t *)calloc(1, sizeof(bwt_t));
+	/// NOTE: seq_len is fwd + rev of seq
 	bwt->seq_len = bwa_seq_len(fn_pac);
+	/// Storing 16 2-bit seq chars per integer, so bwt_size is the
+	/// ceil(seq_len/16)
 	bwt->bwt_size = (bwt->seq_len + 15) >> 4;
 	fp = xopen(fn_pac, "rb");
 
@@ -80,12 +84,18 @@ bwt_t *bwt_pac2bwt(const char *fn_pac, int use_is)
 	err_fread_noeof(buf2, 1, pac_size, fp);
 	err_fclose(fp);
 	memset(bwt->L2, 0, 5 * 4);
+
+	/// Unpacking full PAC sequence into buf, buf2 contain PAC then freed
 	buf = (ubyte_t *)calloc(bwt->seq_len + 1, 1);
 	for (i = 0; i < bwt->seq_len; ++i)
 	{
+		/// This is essentially _get_pac(buf2, i), but with 3-(i&3) vs ~(i)&3 for some reason....
+		/// _get_pac(pac, l) ((pac)[(l) >> 2] >> ((~(l)&3) << 1) & 3)
 		buf[i] = buf2[i >> 2] >> ((3 - (i & 3)) << 1) & 3;
+		/// 1-4 of L2 are the counts of the number of each NT
 		++bwt->L2[1 + buf[i]];
 	}
+	/// Now L2 counts are rolled up so L2[4] contains total
 	for (i = 2; i <= 4; ++i)
 		bwt->L2[i] += bwt->L2[i - 1];
 	free(buf2);
@@ -162,12 +172,21 @@ int bwa_pac2bwt(int argc, char *argv[]) // the "pac2bwt" command; IMPORTANT: bwt
 
 #define bwt_B00(b, k) ((b)->bwt[(k) >> 4] >> ((~(k)&0xf) << 1) & 3)
 
+/// This function update the BWT transform by inserting a [occ_counts] array
+/// of 64-bit counts of aggregate occurrence of each seq char in the BWT
+/// every 8 entries (128 seq chars).
 void bwt_bwtupdate_core(bwt_t *bwt)
 {
 	bwtint_t i, k, c[4], n_occ;
 	uint32_t *buf;
+	/// OCC_INTERVAL = 0x80 = 128, which is a multiple of 16
 
+	/// The BWT as an array of u32 has 16 2-bit seq chars per entry.
+	/// The number of occurance arrays is cel(seq_len / 128)
 	n_occ = (bwt->seq_len + OCC_INTERVAL - 1) / OCC_INTERVAL + 1;
+	/// Note: bwt_size is number of u32 entries, but our occ_array is 64-bit
+	/// counts, so we need 8 4-byte u32 to get 4 u64s...
+	/// This would have been easier read as += (n_occ * 8)
 	bwt->bwt_size += n_occ * sizeof(bwtint_t);  // the new size
 	buf = (uint32_t *)calloc(bwt->bwt_size, 4); // will be the new bwt
 	c[0] = c[1] = c[2] = c[3] = 0;
@@ -180,6 +199,8 @@ void bwt_bwtupdate_core(bwt_t *bwt)
 		}
 		if (i % 16 == 0)
 			buf[k++] = bwt->bwt[i / 16]; // 16 == sizeof(uint32_t)/2
+
+		/// bwt_B00 is the _get_pac of 32-bit packed sequence data
 		++c[bwt_B00(bwt, i)];
 	}
 	// the last element
@@ -300,13 +321,18 @@ int bwa_idx_build(const char *fa, const char *prefix, int algo_type, int block_s
 		t = clock();
 		if (bwa_verbose >= 3)
 			fprintf(stderr, "[bwa_index] Pack FASTA... ");
-		l_pac = bns_fasta2bntseq(fp, prefix, 0);
+		l_pac = bns_fasta2bntseq(fp, prefix, 0 /* forward + reverse */);
 		if (bwa_verbose >= 3)
 			fprintf(stderr, "%.2f sec\n", (float)(clock() - t) / CLOCKS_PER_SEC);
 		err_gzclose(fp);
 	}
+	///  The SA-IS algorithm, published by
+	/// Nong et al. in 2008 [9], is currently the best-known linear-time
+	/// algorithm. It is based on an induced sorting method and is used
+	/// as the default algorithm for BWT construction in bwa for
+	/// inputs of 2GB and less
 	if (algo_type == 0)
-		algo_type = l_pac > 50000000 ? 1 : 3; // set the algorithm for generating BWT
+		algo_type = l_pac > 50000000 ? BWTALGO_RB2 : BWTALGO_IS; // set the algorithm for generating BWT
 	{
 		bwt_t *bwt;
 		strcpy(str, prefix);
@@ -316,7 +342,7 @@ int bwa_idx_build(const char *fa, const char *prefix, int algo_type, int block_s
 		t = clock();
 		if (bwa_verbose >= 3)
 			fprintf(stderr, "[bwa_index] Construct BWT for the packed sequence...\n");
-		bwt = bwt_pac2bwt(str, algo_type == 3);
+		bwt = bwt_pac2bwt(str, algo_type == BWTALGO_IS);
 		bwt_dump_bwt(str2, bwt);
 		bwt_destroy(bwt);
 		if (bwa_verbose >= 3)

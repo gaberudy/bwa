@@ -35,9 +35,14 @@
 #include "utils.h"
 
 #include "kseq.h"
+
+/// This only expands out to declaration of functions, the implementations are in utils.c
 KSEQ_DECLARE(gzFile)
 
 #include "khash.h"
+/// This expands out to the klib/khash data structure for strings with the hash
+/// output of int. See bntseq_p.c for preprocessed version of this file with this expanded.
+/// See https://github.com/gaberudy/hash_test for comparison of khash with rust HashMap
 KHASH_MAP_INIT_STR(str, int)
 
 #ifdef USE_MALLOC_WRAPPERS
@@ -252,18 +257,27 @@ void bns_destroy(bntseq_t *bns)
 	}
 }
 
+/// These macros pack `c` (contain values 0-3) into index position `l` (being
+/// the logical index) of a packed byte array. Each byte is holding 4 values in
+/// this 2-bit range representing the {A,C,G,T} => {0,1,2,3} mapping.
 #define _set_pac(pac, l, c) ((pac)[(l) >> 2] |= (c) << ((~(l)&3) << 1))
 #define _get_pac(pac, l) ((pac)[(l) >> 2] >> ((~(l)&3) << 1) & 3)
 
+/// Encodes one segment / contig from FASTA file into a packed binary
+/// representation held in memorory as `pac` and returned here after possibly
+/// being grown by `realloc`
 static uint8_t *add1(const kseq_t *seq, bntseq_t *bns, uint8_t *pac, int64_t *m_pac, int *m_seqs, int *m_holes, bntamb1_t **q)
 {
 	bntann1_t *p;
 	int i, lasts;
 	if (bns->n_seqs == *m_seqs)
 	{
+		// Double allocation capacity `m_seqs` for the meta-data of the
+		// sequences (segments/contigs) in the sequential packed sequence
 		*m_seqs <<= 1;
 		bns->anns = (bntann1_t *)realloc(bns->anns, *m_seqs * sizeof(bntann1_t));
 	}
+	/// p is the next sequence meta-data struct
 	p = bns->anns + bns->n_seqs;
 	p->name = strdup((char *)seq->name.s);
 	p->anno = seq->comment.l > 0 ? strdup((char *)seq->comment.s) : strdup("(null)");
@@ -271,6 +285,7 @@ static uint8_t *add1(const kseq_t *seq, bntseq_t *bns, uint8_t *pac, int64_t *m_
 	p->len = seq->seq.l;
 	p->offset = (bns->n_seqs == 0) ? 0 : (p - 1)->offset + (p - 1)->len;
 	p->n_ambs = 0;
+	/// pack each letter of seq into the PAC
 	for (i = lasts = 0; i < seq->seq.l; ++i)
 	{
 		int c = nst_nt4_table[(int)seq->seq.s[i]];
@@ -278,10 +293,13 @@ static uint8_t *add1(const kseq_t *seq, bntseq_t *bns, uint8_t *pac, int64_t *m_
 		{ // N
 			if (lasts == seq->seq.s[i])
 			{ // contiguous N
+				/// q logically must have been set in the else block of a prev iteration
 				++(*q)->len;
 			}
 			else
 			{
+				/// *q is the current ambiguous "holes" tracker, which annotates
+				/// the offset and length of a sequence of non {AGCT} char
 				if (bns->n_holes == *m_holes)
 				{
 					(*m_holes) <<= 1;
@@ -291,12 +309,17 @@ static uint8_t *add1(const kseq_t *seq, bntseq_t *bns, uint8_t *pac, int64_t *m_
 				(*q)->len = 1;
 				(*q)->offset = p->offset + i;
 				(*q)->amb = seq->seq.s[i];
+				/// Each sequence knows number of hole (ambs) struct it has, but
+				/// they are stored at the level of the bns (bntseq_t) struct
+				/// for the whole PAC file
 				++p->n_ambs;
 				++bns->n_holes;
 			}
 		}
 		lasts = seq->seq.s[i];
 		{ // fill buffer
+			/// Randomly pick one of the {AGCT} values to store
+			/// ? why though, why not just 0 ?
 			if (c >= 4)
 				c = lrand48() & 3;
 			if (bns->l_pac == *m_pac)
@@ -313,6 +336,10 @@ static uint8_t *add1(const kseq_t *seq, bntseq_t *bns, uint8_t *pac, int64_t *m_
 	return pac;
 }
 
+/// Read a FASTA file, write:
+///  `prefix`.pac (binary packed sequence of all FASTA segments )
+///  `prefix`.ann (meta-data and offsets of segments and "holes" or ambiguous sequences)
+/// if `for_only`, only do forward strand, otherwise write forward, the reverse into PAC
 int64_t bns_fasta2bntseq(gzFile fp_fa, const char *prefix, int for_only)
 {
 	extern void seq_reverse(int len, ubyte_t *seq, int is_comp); // in bwaseqio.c
@@ -344,10 +371,13 @@ int64_t bns_fasta2bntseq(gzFile fp_fa, const char *prefix, int for_only)
 		pac = add1(seq, bns, pac, &m_pac, &m_seqs, &m_holes, &q);
 	if (!for_only)
 	{ // add the reverse complemented sequence
+		/// (+ 3 / 4 * 4) => rounded up to next mod 4
 		int64_t ll_pac = (bns->l_pac * 2 + 3) / 4 * 4;
 		if (ll_pac > m_pac)
 			pac = realloc(pac, ll_pac / 4);
 		memset(pac + (bns->l_pac + 3) / 4, 0, (ll_pac - (bns->l_pac + 3) / 4 * 4) / 4);
+		/// 3 - {AGCT} => {TCGA} which conveniently enough is the DNA complement
+		/// of each letter!!!
 		for (l = bns->l_pac - 1; l >= 0; --l, ++bns->l_pac)
 			_set_pac(pac, bns->l_pac, 3 - _get_pac(pac, l));
 	}
@@ -356,6 +386,7 @@ int64_t bns_fasta2bntseq(gzFile fp_fa, const char *prefix, int for_only)
 		ubyte_t ct;
 		err_fwrite(pac, 1, (bns->l_pac >> 2) + ((bns->l_pac & 3) == 0 ? 0 : 1), fp);
 		// the following codes make the pac file size always (l_pac/4+1+1)
+		/// Note the size above will be l_pac/4 + 0 if `(bns->l_pac & 3) == 0`
 		if (bns->l_pac % 4 == 0)
 		{
 			ct = 0;

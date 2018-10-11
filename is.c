@@ -1,3 +1,8 @@
+/// An evaluation of many algorithms against different benchmarks has been done
+/// by Yuta Mori (http://code.google.com/p/libdivsufsort/) – the author of the
+/// libdivsufsort library and the bwa-is and sais-lite implementations of the
+/// SA-IS algorithm.
+
 /*
  * sais.c for sais-lite
  * Copyright (c) 2008 Yuta Mori All Rights Reserved.
@@ -265,9 +270,26 @@ int is_bwt(ubyte_t *T, int n)
 	int *SA, i, primary = 0;
 	SA = (int *)calloc(n + 1, sizeof(int));
 
+	/// Construct the Suffix Array (SA) The suffix array `SA` of `T` is now
+	/// defined to be an array of integers providing the starting positions of
+	/// suffixes of `T` in lexicographical (byte) order.
+
+	/// This means, an entry `SA[i]` contains the starting position of the
+	/// `i`-th smallest suffix in `T` and thus for all `1 < i <= n`:
+	/// `T[SA[i-1]:n]<T[SA[i]:n]`.
 	if (is_sa(T, SA, n))
 		return -1;
 
+	/// The order of the sorted rotated BWT matrix corresponds to the order of
+	/// suffixes in a suffix array.
+
+	/// The BWT can be computed in linear time by first constructing a suffix
+	/// array of the text and then deducing the BWT string:
+
+	/// BWT[i]=T[SA[i]-1]
+
+	/// `primary` is the special '$' end-of-string character that is sort-order
+	/// smallest in string. We track its position but remove it from the BWT
 	for (i = 0; i <= n; ++i)
 	{
 		if (SA[i] == 0)
